@@ -26,7 +26,7 @@ tags:
 
 **Running DeepSeek Engram, H-Net Byte Routing, and Liquid AI (LFM2 / CfC) in 1.1 MB of Microcontroller Weights — Distilled from Qwen3-32B into Bit-Exact `int8` C11/C++20 Firmware for an ESP32-S3 E-Reader**
 
-[Project Page (robertzhou.dev)](https://robertzhou.dev/work/platonic-engram-hnet/) · [GitHub Repository](https://github.com/bobzhou-source/platonic-engram-hnet) · [Architecture](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/ARCHITECTURE.md) · [Benchmarks](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/BENCHMARKS.md)
+[robertzhou.dev](https://robertzhou.dev/) · [GitHub Repository](https://github.com/bobzhou-source/platonic-engram-hnet) · [Architecture](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/ARCHITECTURE.md) · [Benchmarks](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/BENCHMARKS.md)
 
 I wanted three things on the **[Xteink X4 Pro](https://www.xteink.com)** e-ink reader I carry around (a dual-core 240 MHz **ESP32-S3** microcontroller with 8 MB of PSRAM running a fork of [CrossPoint Reader](https://github.com/CrossPoint-Reader) / [PapyriX](https://papyrix.com)):
 1. Hold any English or Chinese word and get the meaning it has **in that sentence**.
@@ -147,6 +147,6 @@ Code and weights are MIT, with two exceptions:
   title  = {Platonic-Engram-HNet: On-Device LLM and Concept Engine for the Xteink X4 Pro (ESP32-S3) in 1.1 MB of RAM},
   author = {Zhou, Robert},
   year   = {2026},
-  url    = {https://robertzhou.dev/work/platonic-engram-hnet/}
+  url    = {https://github.com/bobzhou-source/platonic-engram-hnet}
 }
 ```

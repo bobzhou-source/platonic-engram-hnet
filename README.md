@@ -2,7 +2,7 @@
 
 **Running DeepSeek Engram, H-Net Byte Routing, and Liquid AI (LFM2 / CfC) in 1.1 MB of Microcontroller Weights — Distilled from Qwen3-32B into Bit-Exact `int8` C11/C++20 Firmware for an ESP32-S3 E-Reader**
 
-[Project Page (robertzhou.dev)](https://robertzhou.dev/work/platonic-engram-hnet/) · [Hugging Face Weights](https://huggingface.co/bobzhou0/Platonic-Engram-HNet-v2) · [Architecture](ARCHITECTURE.md) · [Benchmarks](BENCHMARKS.md)
+[robertzhou.dev](https://robertzhou.dev/) · [Hugging Face Weights](https://huggingface.co/bobzhou0/Platonic-Engram-HNet-v2) · [Architecture](ARCHITECTURE.md) · [Benchmarks](BENCHMARKS.md)
 
 I wanted three things on the **[Xteink X4 Pro](https://www.xteink.com)** e-ink reader I carry around (a dual-core 240 MHz **ESP32-S3** microcontroller with 8 MB of PSRAM running a fork of [CrossPoint Reader](https://github.com/CrossPoint-Reader) / [PapyriX](https://papyrix.com)):
 1. Hold any English or Chinese word and get the meaning it has **in that sentence**.
