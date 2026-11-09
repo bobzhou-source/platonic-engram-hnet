@@ -8,18 +8,20 @@ The system has four learned parts and three data files. Weights live in PSRAM. L
 
 Bytes in, one int8 128-d concept vector out:
 
-1. **Bytes.** Up to 256 UTF-8 bytes per window. There is no tokenizer and no vocabulary.
+1. **Bytes.** Up to 256 UTF-8 bytes per window. There is no tokenizer and no vocabulary ([Byte Latent Transformer](https://arxiv.org/abs/2412.09871)-style byte input).
 2. **Byte embedding.** `byte_embed` 256×64 (d_byte = 64).
-3. **Two LFM2-style double-gated ShortConv blocks** (depthwise k=3, pointwise, gate).
-4. **H-Net cosine router.** `router_q`, `router_k` 64×32 (router_dim 32). The router is causal, with a 6-byte receptive field. A chunk boundary is placed where the query/key cosine says a word starts. Spans are capped at 12 bytes and never cut inside a UTF-8 character. Training applies a class-balanced hinge on jieba word starts, pushing them to cos ≤ −0.2 and inside lead bytes to ≥ +0.2. Mean chunk length is 4.60 bytes.
+3. **Two [Liquid AI LFM2](https://arxiv.org/abs/2511.23404)-style double-gated ShortConv blocks** (depthwise k=3, pointwise, gate).
+4. **[H-Net](https://arxiv.org/abs/2507.07955) cosine router.** `router_q`, `router_k` 64×32 (router_dim 32). The router is causal, with a 6-byte receptive field. A chunk boundary is placed where the query/key cosine says a word starts. Spans are capped at 12 bytes and never cut inside a UTF-8 character. Training applies a class-balanced hinge on [jieba](https://github.com/fxsjy/jieba) word starts, pushing them to cos ≤ −0.2 and inside lead bytes to ≥ +0.2. Mean chunk length is 4.60 bytes.
 5. **Chunk mean → `chunk_proj`** 64×128 (d_concept = 128).
-6. **Engram delta.** slot = FNV-1a64(span bytes) mod 65,536. The slot's int8 delta is added to the first 24 dims. The **Bigram-span Engram** works the same way: for chunk c ≥ 1 with len(c−1)+len(c) ≤ 18, h2 = FNV-1a64(bytes of both chunks), applied only when the slot's stored span_hash equals h2.
-7. **Ouro core ×2.** Two loops of one shared-weight gated ShortConv + `core_out_proj` (128×128).
+6. **[DeepSeek Engram](https://arxiv.org/abs/2601.07372) delta.** slot = FNV-1a64(span bytes) mod 65,536. The slot's int8 delta is added to the first 24 dims. The **bigram-span Engram** works the same way: for chunk c ≥ 1 with len(c−1)+len(c) ≤ 18, h2 = FNV-1a64(bytes of both chunks), applied only when the slot's stored span_hash equals h2.
+7. **[Ouro](https://arxiv.org/abs/2510.25741) looped core ×2.** Two loops of one shared-weight gated ShortConv + `core_out_proj` (128×128).
 8. **Readout.** Sum over chunks → integer-sqrt L2 normalisation → int8 ×128.
 
-Training: LeJEPA identity + SIGReg (λ = 0.02) plus InfoNCE cross-lingual alignment between Chinese context sentences and English dictionary definitions. Quantisation-aware training is applied in the int8 graph.
+Training: [LeJEPA](https://arxiv.org/abs/2511.08544) identity + SIGReg (λ = 0.02) plus [InfoNCE](https://arxiv.org/abs/1807.03748) cross-lingual alignment between Chinese context sentences and English dictionary definitions, with [Qwen3](https://arxiv.org/abs/2505.09388) relational knowledge distillation (KD) in the shipped encoder. [Quantisation-aware training](https://arxiv.org/abs/1712.05877) is applied in the int8 graph.
 
-### Binary layout (95,008 B = 32 B header + 94,976 int8)
+The file is 95,008 B (32 B header + 94,976 int8) in four scale groups (`embed`, `router`, `proj`, `core`). Firmware RAM: 1,280 B persistent state and 4,096 B peak activations.
+
+<details><summary>Binary format layouts (byte offsets)</summary>
 
 | Tensor | Shape | Scale group | Offset | Bytes |
 |---|---|---|---:|---:|
@@ -39,28 +41,38 @@ Training: LeJEPA identity + SIGReg (λ = 0.02) plus InfoNCE cross-lingual alignm
 | core_gate | 128×128 | core | 62,240 | 16,384 |
 | core_out_proj | 128×128 | core | 78,624 | 16,384 |
 
-Four scale groups (`embed`, `router`, `proj`, `core`). Firmware RAM: 1,280 B persistent state and 4,096 B peak activations.
+</details>
 
-## 2. Engram hash table (`engram.bin`, ENGR v1)
+## 2. DeepSeek Engram hash table (`engram.bin`, ENGR v1)
 
-4,194,816 B = 512 B header (`<IIIIf`: magic `ENGR`, version, num_slots = 65,536, slot_bytes = 64, scale; padded to 512 B) + 65,536 slots of 64 B:
-
-| Field | Bytes | Meaning |
-|---|---:|---|
-| `span_hash` | 8 | u64 FNV-1a64 of the dominant router span (bigram gate key) |
-| `concept_delta` | 24 | int8 delta added to concept dims 0–23 |
-| `gloss` | 32 | NUL-padded UTF-8 gloss (display only; the encoder never reads it) |
+4,194,816 B: a 512 B header followed by 65,536 slots of 64 B. Each slot holds the hash of the word span it belongs to, an int8 correction for concept dims 0–23, and a short display gloss from [CC-CEDICT](https://cc-cedict.org/) or [Open English WordNet](https://en-word.net/).
 
 The table stays on the SD card. The firmware reads one 64-byte slot per chunk, plus one more per bigram probe. The deployed table has 58,554 slots with a span hash and 8,526 with a gloss. The published public-gloss build keeps 7,997 glosses (see the model card).
 
-## 3. Chrono-Slot Pointer Weaver v2 (`cspw.bin`, CSPW v2)
+<details><summary>Binary format layouts (byte offsets)</summary>
 
-CS-PW turns gated story-graph events into short, spoiler-free refreshers about an entity.
+Header: `<IIIIf` (magic `ENGR`, version, num_slots = 65,536, slot_bytes = 64, scale), padded to 512 B.
 
-- **Memory.** Four Chrono-CfC slots (D_SLOT = 128) whose memory decays as f = 32768 · 2^(−Δpage/τ) (Q15).
-- **Mixer.** ShortConv + Chunk-GQA at d_model = 192 with 4 query heads and 2 KV heads (head dim 48).
+| Field | Slot offset | Bytes | Meaning |
+|---|---:|---:|---|
+| `span_hash` | 0 | 8 | u64 FNV-1a64 of the dominant router span (bigram gate key) |
+| `concept_delta` | 8 | 24 | int8 delta added to concept dims 0–23 |
+| `gloss` | 32 | 32 | NUL-padded UTF-8 gloss (display only; the encoder never reads it) |
+
+</details>
+
+## 3. Spoiler-gated Liquid CfC character memory (`cspw.bin`, CSPW v2)
+
+This module turns page-gated story events into short, spoiler-free refreshers about a character.
+
+- **Memory.** Four [Liquid AI closed-form continuous-time (CfC)](https://arxiv.org/abs/2106.13898) slots (D_SLOT = 128) whose memory decays as f = 32768 · 2^(−Δpage/τ) (Q15).
+- **Mixer.** ShortConv + chunked [grouped-query attention](https://arxiv.org/abs/2305.13245) at d_model = 192 with 4 query heads and 2 KV heads (head dim 48).
 - **Decoder.** A typed pointer decoder over 256 frame templates and 512 role/phrase entries, all generic text with no names.
-- **Spoiler gate.** Events come from the SGRF story graph, sorted by reading cutoff. A lookup returns only events at or before the reader's current position. Aliases are revealed only after their reveal point.
+- **Spoiler gate.** Events come from the story graph (below), sorted by reading position. A lookup returns only events at or before the reader's current byte offset. Aliases are revealed only after their reveal point.
+
+The file is 393,728 B. Firmware RAM: 4,864 B state, 6,520 B peak activations.
+
+<details><summary>Binary format layouts (byte offsets)</summary>
 
 | Tensor | Shape | Offset | Bytes |
 |---|---|---:|---:|
@@ -79,19 +91,29 @@ CS-PW turns gated story-graph events into short, spoiler-free refreshers about a
 | phrase strings | 512 × 100 B | 340,736 | 51,200 |
 | tail (zero) | — | 391,936 | 1,792 |
 
-Firmware RAM: 4,864 B state, 6,520 B peak activations.
+</details>
 
 ### Story graph (`story-graph.idx`, SGRF v1)
 
-The SGRF file has a 512-byte header (`<4sHHIIIIII`: magic, version, flags, entity/event/alias counts and section offsets). It is followed by 64-byte entity records (term hash, book hash, first cutoff, kind, name/role, event range) and 256-byte event records (cutoff, chapter/page, slot and salience hints, event gloss, int8 scene vector), both sector-aligned. Last come the 24-byte alias records (alias hash, canonical hash, reveal cutoff). The story graph is **built per reader from that reader's own library**, so it is never published. The device build is 4,295,680 B: 2,532 entities, 16,137 events, 62 aliases. The public BookSum build is 1,441,280 B: 439 entities, 5,517 events, 0 aliases. It reproduces the published benchmark (spoiler leakage 0.000 on 9,169 queries).
+The story graph lists each character, the events they appear in, and the reading position where each event happens. It is **built per reader from that reader's own library**, so it is never published. The device build is 4,295,680 B: 2,532 characters, 16,137 events, 62 aliases. The public [BookSum](https://arxiv.org/abs/2105.08209) build is 1,441,280 B: 439 characters, 5,517 events, 0 aliases. It reproduces the published benchmark (spoiler leakage 0.000 on 9,169 queries).
 
-## 4. Frame-Locked PE-Writer v2 (`pe-writer.bin` PEWR + `writer-clauses.bin` WCLS)
+<details><summary>Binary format layouts (byte offsets)</summary>
 
-PE-Writer v2 writes a one-sentence "riff" about a concept without ever improvising a content word.
+The SGRF file has a 512-byte header (`<4sHHIIIIII`: magic, version, flags, entity/event/alias counts and section offsets). It is followed by 64-byte entity records (term hash, book hash, first cutoff, kind, name/role, event range) and 256-byte event records (cutoff, chapter/page, slot and salience hints, event gloss, int8 scene vector), both sector-aligned. Last come the 24-byte alias records (alias hash, canonical hash, reveal cutoff).
 
-- **Planner.** A 3-step Ouro planner (`step_embed`, `plan_fc1`, `plan_fc2`) routes each step to one of 64 role-partitioned clause buckets.
+</details>
+
+## 4. Clause-locked margin writer (`pe-writer.bin` PEWR + `writer-clauses.bin` WCLS)
+
+The writer produces a one-sentence margin note about a concept without ever improvising a content word. It follows the sentence-level planning idea of [Meta's Large Concept Models](https://arxiv.org/abs/2412.08821).
+
+- **Planner.** A 3-step [Ouro](https://arxiv.org/abs/2510.25741) planner (`step_embed`, `plan_fc1`, `plan_fc2`) routes each step to one of 64 role-partitioned clause buckets.
 - **Decoder.** A gated ShortConv decoder (d = 128, T_max = 36). It is frame-locked: only `<EOS>`, the 6 slot specials and 32 connector pieces (ids 8–39) can win the argmax. The other 2,008 `lm_head` rows have W = 0 and bias −30000.
 - **Frame.** `<ENT_SUBJECT>, <ENT_ROLE>: <CLAUSE_0> <connector> <BOOK_ECHO>, <CLAUSE_1>.<EOS>`. Clause slots are filled from the WCLS bank on the SD card, which holds 4,096 lowercase clauses of 4–10 words with no proper nouns.
+
+The files are 641,726 B (PSRAM) and 1,048,608 B (SD).
+
+<details><summary>Binary format layouts (byte offsets)</summary>
 
 | Tensor | Kind | Shape | Offset | Bytes |
 |---|---|---|---:|---:|
@@ -111,15 +133,17 @@ PE-Writer v2 writes a one-sentence "riff" about a concept without ever improvisi
 
 `lin` = float32 scale + int16 bias[out] + int8 W[out][in]. WCLS = 32 B header + 64 buckets × 64 slots × 256 B = 1,048,608 B.
 
-## 5. LiquidRefresh CfC v2 (firmware display policy)
+</details>
 
-A closed-form continuous-time (CfC) cell, 8 inputs → 16 units → 3 readouts:
+## 5. Liquid CfC e-ink refresh controller (firmware display policy)
+
+A [closed-form continuous-time (CfC)](https://arxiv.org/abs/2106.13898) cell, 8 inputs → 16 units → 3 readouts:
 
 $$h_t = e^{-f(x_t)\Delta t} \odot h_{t-1} + \left(1 - e^{-f(x_t)\Delta t}\right) \odot \tanh(W_g x_t + b_g),\quad f(x) = \mathrm{softplus}(W_f x + b_f)$$
 
 - **Inputs (Q7).** Changed share, fast turn, image area, dither, image overlap, inverted (night), edge density, mid-gray share.
 - **Units.** Units 0–5 model reversible text charge. Units 6–11 model image sticking. Units 12–15 serve the dither head.
-- **Readouts.** y0 is the refresh gate, which learns on the device by e-prop. y1 is contrast gain, clamped to Q8 240–312. y2 is error-diffusion bleed, clamped to Q8 160–256.
+- **Readouts.** y0 is the refresh gate, which learns on the device with [e-prop eligibility traces](https://arxiv.org/abs/1901.09049). y1 is contrast gain, clamped to Q8 240–312. y2 is error-diffusion bleed, clamped to Q8 160–256.
 - **Parameters.** W_f 16×8, b_f 16, W_g 16×8, b_g 16, W_out 3×16, b_out 3: 339 int8 bytes in total. The hidden state is Q8.
 
 ## 6. Memory budget
@@ -129,12 +153,12 @@ $$h_t = e^{-f(x_t)\Delta t} \odot h_{t-1} + \left(1 - e^{-f(x_t)\Delta t}\right)
 | Where | Contents | Bytes |
 |---|---|---:|
 | Internal RAM | encoder state + peak activations | 1,280 + 4,096 |
-| Internal RAM | CS-PW state + peak activations | 4,864 + 6,520 |
+| Internal RAM | character memory state + peak activations | 4,864 + 6,520 |
 | PSRAM | `platonic-hnet.bin` + `cspw.bin` + `pe-writer.bin` | 95,008 + 393,728 + 641,726 |
 | SD | `engram.bin`, `writer-clauses.bin`, `story-graph.idx` | 4,194,816 + 1,048,608 + per-library |
 | PSRAM headroom | minimum free during the night-reading workload | 5,640,084 |
 
-Pareto accounting from the benchmark: the deployed encoder (E3) uses 96.8 KB RAM and 4,189.3 KB flash+SD. Encoder + Engram + CS-PW uses 487.6 KB RAM and 4,573.8 KB. The matched-RAM BPE model uses 550.0 KB RAM and 137.5 KB flash.
+Pareto accounting from the benchmark: the shipped encoder (H-Net + DeepSeek Engram + Qwen3 KD) uses 96.8 KB RAM and 4,189.3 KB flash+SD. The shipped encoder plus the spoiler-gated character memory uses 487.6 KB RAM and 4,573.8 KB. The matched-RAM BPE baseline uses 550.0 KB RAM and 137.5 KB flash.
 
 ## 7. Private per-reader indexes (never published)
 

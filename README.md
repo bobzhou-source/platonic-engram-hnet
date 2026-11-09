@@ -1,74 +1,77 @@
 # Platonic-Engram-HNet
 
-**On-Device LLM & Concept Engine for the Xteink X4 Pro (ESP32-S3 E-Ink E-Reader) — Bilingual Word Sense, Spoiler-Free Character Memory, and Zero-Hallucination Generation in 1.1 MB of RAM (Qwen3-32B H200 Distillation to Bit-Exact int8 C11/C++20 Firmware)**
+**Running DeepSeek Engram, H-Net Byte Routing, and Liquid AI (LFM2 / CfC) in 1.1 MB of Microcontroller Weights — Distilled from Qwen3-32B into Bit-Exact `int8` C11/C++20 Firmware for an ESP32-S3 E-Reader**
 
 [Project Page (robertzhou.dev)](https://robertzhou.dev/work/platonic-engram-hnet/) · [Hugging Face Weights](https://huggingface.co/bobzhou0/Platonic-Engram-HNet-v2) · [Architecture](ARCHITECTURE.md) · [Benchmarks](BENCHMARKS.md)
 
-I wanted three things from the **Xteink X4 / X4 Pro** e-ink e-reader I read on (an **ESP32-S3** microcontroller with 8 MB of PSRAM running **PapyriX** firmware): tap an English or Chinese word and get the meaning it has in that sentence, ask "who is this character again?" on page 40 without spoiling page 300, and get short margin notes that never invent a name or stop mid-sentence.
+I wanted three things on the **[Xteink X4 Pro](https://www.xteink.com)** e-ink reader I carry around (a dual-core 240 MHz **ESP32-S3** microcontroller with 8 MB of PSRAM running a fork of [CrossPoint Reader](https://github.com/CrossPoint-Reader) / [PapyriX](https://papyrix.com)):
+1. Hold any English or Chinese word and get the meaning it has **in that sentence**.
+2. Ask *"who is this character again?"* on page 40 **without spoiling page 300**.
+3. Get short margin notes that **never invent a character name or cut off mid-sentence**.
 
-Shrinking a standard language model (LLM) does not get you there. Below a megabyte it fails in three separate places:
+Shrinking a standard Transformer below 1 MB fails in all three places:
+- **The tokenizer eats all your RAM.** As Maxime Labonne (Liquid AI) showed in [Everything I Learned Training Frontier Small Models](https://www.slideshare.net/slideshow/everything-i-learned-training-frontier-small-models/286935677), the vocabulary embedding table alone takes **63% of the parameters** in Gemma 3 270M (`29%` in Qwen3.5-0.8B, `19%` in LFM2.5-350M). At 32,000 tokens and width 128, that table is **4.1 MB even at `int8`** (`16.4 MB` in `fp32`) before a single layer runs.
+- **Standard RAG spoils the book.** Searching across a whole book means a lookup on Chapter 3 pulls plot twists from Chapter 20 ([Living the Novel](https://arxiv.org/abs/2512.07474)).
+- **Sub-megabyte token-by-token decoders get stuck in "doom loops."** Labonne's slides documented `15%` repetition doom loops in small models before post-training; at `< 1 MB`, my token-by-token micro-decoder broke off mid-sentence on **51.2%** of [BookSum](https://arxiv.org/abs/2105.08209) notes and invented proper nouns on **26.1%**.
 
-- **The dictionary doesn't fit.** A 32,000-token vocabulary table at width 128 takes 4,096,000 bytes even at 8-bit precision, before a single layer runs. That alone is more RAM than the reader can spare next to its page buffers.
-- **Search spoils the book.** Ordinary retrieval looks through the whole book, so a question asked on page 40 can be answered from page 300.
-- **Tiny models can't finish a sentence.** My micro-model breaks off mid-sentence in 51.2% of its notes and invents a character name in 26.1%.
+---
 
-So I designed the models and the hardware memory layout together. The models were distilled from Qwen3-32B teachers on H200 GPUs and chosen through 14 controlled ablation arms; each one is placed where the device can afford it, in fast PSRAM or on the SD card the reader already uses to store books:
+## How I Built It (Hardware–Model Co-Design)
 
-1. **Split compute from the dictionary — 96.8 KB of RAM vs 550 KB for a subword (BPE) model, 5.7× smaller.** A 95 KB 8-bit byte router in PSRAM reads raw UTF-8 and finds English and Chinese word boundaries, beating a BPE tokenizer given the same RAM by +7.2, +9.5 and +6.0 F1 points on three Chinese segmentation benchmarks. Word meanings live in a 4.2 MB hash table on the SD card, read one 64-byte slot per word.
-2. **Hard-causal character memory — 0.00% spoilers across 9,169 BookSum queries.** Four continuous-time character slots in PSRAM (394 KB) fade with page distance and sit behind a gate on your current page offset. It still keeps each character's earliest and latest scenes in the right order 99.46% of the time (temporal-swap accuracy 0.9946). Remove the gate and spoiler leakage is 100%.
-3. **Clause-locked generation — 0.00% broken sentences and 0.0% invented names across 4,226 public tests.** Instead of decoding token by token, a 3-step planner (642 KB) picks whole clauses from a 4,096-entry bank on the SD card, none of which contains a proper noun.
-4. **Bit-exact integer parity — 0 mismatches from PyTorch QAT → NumPy → C11 → C++20 firmware.** Verified on 38,580 / 38,580 benchmark lines and 1,067 / 1,067 firmware unit tests. The C kernel answers a query in a median 6.0 ms on an Apple M1 host, and with every model loaded the device keeps 5.64 MB of PSRAM free.
+Instead of cramming a standard Transformer into SRAM/PSRAM, I combined recent ideas from **DeepSeek**, **Liquid AI**, **Cartesia / CMU**, **Meta**, and **Yann LeCun's JEPA line of work**, distilled from **[Qwen3-32B](https://arxiv.org/abs/2505.09388)** and **[Qwen3-Embedding-0.6B](https://arxiv.org/abs/2506.05176)** on H200 and RTX PRO 6000 Blackwell GPUs across 14 controlled ablation arms.
+
+The name **Platonic-Engram-HNet** comes from the three pieces of the encoder:
+- **H-Net ([Hwang et al., 2025](https://arxiv.org/abs/2507.07955)) & [Byte Latent Transformer](https://arxiv.org/abs/2412.09871):** A **95 KB** causal UTF-8 byte router in PSRAM (`platonic-hnet.bin`) that learns English and Chinese word boundaries directly from raw bytes—no tokenizer or vocabulary table in RAM. Following Labonne's on-device operator ranking (`ShortConv < SWA < GDN < GLA < GQA`), the backbone uses two **[Liquid AI LFM2](https://arxiv.org/abs/2511.23404)** double-gated `ShortConv` blocks, one [Grouped-Query Attention](https://arxiv.org/abs/2305.13245) block, and a 2-loop weight-tied **[Ouro](https://arxiv.org/abs/2510.25741)** core.
+- **DeepSeek Engram ([DeepSeek-AI, 2026](https://arxiv.org/abs/2601.07372)) & [Tokenizer-Agnostic Engram](https://arxiv.org/abs/2607.29065):** Word and phrase memory is moved off RAM onto the SD card (`engram.bin`, **4.2 MB**, 65,536 FNV-1a hashed n-gram & bigram slots). Each word chunk costs a single **$O(1)$ 64-byte SD slot read**.
+- **Platonic JEPA ([Balestriero & LeCun, 2025](https://www.alphaxiv.org/pdf/2610.39302); [LeJEPA / SIGReg](https://arxiv.org/abs/2511.08544)):** Trained with an isotropic Gaussian regularizer (`SIGReg`), [InfoNCE](https://arxiv.org/abs/1807.03748), and [Matryoshka](https://arxiv.org/abs/2205.13147) `Qwen3` distillation so matching English and Chinese concepts land on the same 128-d `int8` vector.
+
+On top of that 95 KB encoder sit three tiny modules:
+1. **Spoiler-Free Character Memory (`cspw.bin`, 394 KB PSRAM):** Built on four **[Liquid AI Closed-Form Continuous-Time (CfC)](https://arxiv.org/abs/2106.13898)** memory slots that decay with page distance ($2^{-\Delta p / \tau}$) behind a hard causal gate on your exact byte offset in the book.
+2. **Clause-Locked Margin Writer (`pe-writer.bin`, 642 KB PSRAM + `writer-clauses.bin`, 1.0 MB SD):** Inspired by [Meta's Large Concept Models](https://arxiv.org/abs/2412.08821) and Labonne's decoupled Top-$K$ KD + loop-rejecting [DPO](https://arxiv.org/abs/2305.18290) recipe. After DPO cut 3-gram repetition loops from `9.25% → 3.50%` on validation, I locked the output grammar so a 3-step `Ouro` concept planner selects whole verified clauses from a 4,096-clause SD bank containing zero proper nouns.
+3. **Physical E-Ink Refresh Controller (339 bytes in flash/SRAM):** A 16-unit **[Liquid CfC](https://arxiv.org/abs/2106.13898)** network trained on camera-calibrated ghosting ladders and 19 reading logs, with on-device [`e-prop` eligibility traces](https://arxiv.org/abs/1901.09049) that adapt when you press manual refresh.
 
 ![Memory map](docs/memory-map.svg)
 
-## At a glance
+---
 
-| What it does | This system (`1.13 MB` total RAM) | Standard baseline at the same budget |
-|---|---|---|
-| **Word reader RAM in firmware** (`platonic-hnet.bin` + `engram.bin`) | **96.8 KB RAM** (+ 4.2 MB on SD card) | 550.0 KB RAM for a subword (BPE) tokenizer (**5.7× larger**) |
-| **Chinese word splitting & English word sense** | **+7.2 / +9.5 / +6.0 F1** over BPE on 3 Chinese benchmarks · **5 wins, 6 ties, 1 loss** across 12 public sentence tasks | Matched-RAM BPE (140,800 parameters) |
-| **Spoiler-free character recaps** (`cspw.bin`, `394 KB`) | **0.00% spoilers** across 9,169 BookSum questions · **99.46%** scene-order accuracy | **100% spoiler leakage** when the page gate is removed |
-| **Margin notes** (`pe-writer.bin`, `642 KB` + `1 MB` SD clause bank) | **0.00% broken sentences · 0.0% invented names** across 4,226 public tests | **51.2% broken sentences · 26.1% invented names** with token-by-token decoding |
-| **E-ink screen refresh controller** (`LiquidRefresh`, `339 B`) | **99.9%** refresh decision accuracy across 1,500 episodes (cuts full-screen flashes) | Fixed page-count rule |
-| **Python → C11 → C++20 firmware match** | **0 bit mismatches** across 38,580 benchmark lines & 1,067 firmware tests (`6.0 ms` median C query) | — |
+## Results at a Glance (and Where a 95 KB Model Still Loses)
 
-**Where a 95 KB model still loses:** Because the byte router caps chunks at 12 UTF-8 bytes and fits in 95 KB of RAM, it splits 5+ character Chinese compounds, loses to 200 MB+ server models on whole-sentence translation, and trails a static slot template on reference similarity. Every win, loss, and 14-arm ablation table is published in [BENCHMARKS.md](BENCHMARKS.md), and the model internals are in [ARCHITECTURE.md](ARCHITECTURE.md).
-## Quickstart
+Every number below runs the exact [int8 QAT](https://arxiv.org/abs/1712.05877) graph that ships on the ESP32-S3. Full tables across all 14 ablation arms are in [BENCHMARKS.md](BENCHMARKS.md).
+
+| Benchmark / Capability | This Stack (`1.13 MB` PSRAM weights) | Matched-Budget Baseline | Reference / Upper Bound |
+|---|---|---|---|
+| **Word encoder RAM in firmware** (`platonic-hnet.bin` + SD `engram.bin`) | **96.8 KB RAM** (+ 4.2 MB on SD) | 550.0 KB RAM for matched `fp32` BPE (**5.7× larger**) | — |
+| **Chinese word segmentation F1** ([SIGHAN05-PKU / MSR](https://aclanthology.org/I05-3017/), [UD-GSDSimp](https://universaldependencies.org/)) | **0.394 / 0.402 / 0.431** | 0.322 / 0.307 / 0.371 (BPE) | `LFM2-350M` tok 0.488 · `jieba` 0.818 |
+| **English word-sense disambiguation** ([MCL-WiC](https://aclanthology.org/2021.semeval-1.3/) en-en) | **57.7%** (wins/ties **11 of 12** WiC/STS tasks vs BPE) | 52.3% (BPE) | [MiniLM-L12](https://arxiv.org/abs/2004.09813) (235 MB) 69.3% |
+| **Language modeling bits/byte** ([WikiText-2](https://arxiv.org/abs/1609.07843) / PKU) | **3.4636 / 3.8351** (H-Net byte router only) · `3.5789 / 4.0487` (with Engram) | 3.4925 / 4.0200 (BPE) | `LFM2-350M` (700 MB) 1.5646 |
+| **Character recap spoiler leakage** ([BookSum](https://arxiv.org/abs/2105.08209), 9,169 queries) | **0.00% spoilers** · **99.46%** scene-order accuracy | **100.0% spoilers** (same model without page-offset gate) | — |
+| **Margin writer broken sentences / fake names** (4,226 tests across [BookSum](https://arxiv.org/abs/2105.08209), [NarrativeQA](https://arxiv.org/abs/1712.07040), [CommonGen](https://arxiv.org/abs/1911.03705)) | **0.00% broken** · **0.0% fake names** (clause-locked v2) | 51.2% broken · 26.1% fake names (token-by-token v1) | — |
+| **E-ink refresh gate accuracy** (1,500 image episodes / 19 reading logs) | **99.9%** (`339-byte` Liquid CfC · cuts flashes `25 → 8`) | Static ink-debt counter | — |
+| **PyTorch QAT → NumPy → C11 → ESP32-S3 C++20 parity** | **0 bit mismatches** (38,580 seg lines · 7,480 texts · 1,067 firmware tests) | `6.0 ms` median C query on M1 · **5.64 MB free PSRAM** on device | — |
+
+**Where a 95 KB model still loses:**
+- **5+ character Chinese compounds:** Because the byte router caps chunks at 12 UTF-8 bytes (`4` Chinese characters), it cannot emit the 214 `SIGHAN05-PKU` gold words that are 5+ characters long as a single span.
+- **Whole-sentence cross-lingual retrieval:** The SD Engram aligns words and idioms in context (`71.3%` term-level recall), but a 95 KB encoder cannot match a 235 MB transformer on full-sentence [Tatoeba](https://tatoeba.org/) zh→en retrieval (`3.0%` R@1 vs `96.1%` for multilingual MiniLM-L12).
+- **Template similarity:** Clause-locked decoding guarantees `0%` broken sentences and `0%` invented names, but trails a static slot template on [Sentence-BERT](https://arxiv.org/abs/1908.10084) cosine similarity (`44.17` vs `47.02` on BookSum).
+
+---
+
+## Quickstart (NumPy Only)
 
 ```bash
 pip install numpy
-python examples/quickstart.py                     # word splitting + meaning vectors, spoiler-safe recap, margin note
-python src/verify_c_parity.py                     # Python vs C11 parity (needs a C compiler)
-python src/verify_pe_writer_parity.py --require-firmware   # writer: NumPy vs C++17 vs firmware kernel (needs clang++)
+python examples/quickstart.py                              # (a) byte routing + int8 concepts, (b) spoiler-gated recap, (c) margin note
+python src/verify_c_parity.py                              # encoder + character memory: C11 vs NumPy vs Python (0 mismatches)
+python src/verify_pe_writer_parity.py --require-firmware   # writer: NumPy vs C++17 vs ESP32-S3 firmware kernel (0 mismatches)
 ```
 
-Training (`src/train.py`, `src/train_cspw.py`, `src/train_pe_writer.py`) and the benchmark runners (`benchmarks/`) need PyTorch plus the public datasets each script names; `src/train.py --smoke` runs on synthetic data on a CPU. The private training corpus and checkpoints are not published.
+| File in `weights/` | Size | What it is |
+|---|---:|---|
+| `platonic-hnet.bin` | `95,008 B` | `int8` H-Net byte router + LFM2 ShortConv + Ouro encoder (PSRAM) |
+| `engram.bin` | `4,194,816 B` | 65,536-slot DeepSeek Engram hash table (SD card; public [CC-CEDICT](https://cc-cedict.org/) + [Open English WordNet](https://en-word.net/) gloss build) |
+| `cspw.bin` | `393,728 B` | 4-slot Liquid CfC character memory + pointer weaver (PSRAM) |
+| `pe-writer.bin` | `641,726 B` | Qwen3-32B distilled 3-step Ouro concept planner + clause selector (PSRAM) |
+| `writer-clauses.bin` | `1,048,608 B` | 4,096 proper-noun-free English clauses (SD card) |
+| `booksum-story-graph.idx` | `1,441,280 B` | Public [BookSum](https://arxiv.org/abs/2105.08209) character timeline used by `quickstart.py` |
 
-| Path | Contents |
-|---|---|
-| `src/` | models, trainers, int8 exporters, integer references, parity tests |
-| `firmware/` | device C++ kernel (`ConceptEngine.*`), e-ink refresh controller (`AdaptiveRefreshPolicy.*`), host build stubs |
-| `benchmarks/` | public benchmark runners |
-| `examples/quickstart.py` | the three reader features on the published weights |
-| `weights/` | published int8 weights + `SHA256SUMS` (same files as the Hugging Face repo) |
-
-## Documents
-
-- [ARCHITECTURE.md](ARCHITECTURE.md): how each model works, file formats, RAM budget and integer arithmetic.
-- [BENCHMARKS.md](BENCHMARKS.md): every public benchmark table, wins and losses.
-- [HF_MODEL_CARD.md](HF_MODEL_CARD.md): weight files, checksums, and what was left out to protect personal reading data.
-
-## License
-
-Code and weights: MIT (see [LICENSE](LICENSE)). Dictionary glosses come from CC-CEDICT (CC BY-SA 4.0) and Open English WordNet (CC BY 4.0); see the model card for attribution.
-
-## Citation
-
-```bibtex
-@software{zhou2026platonic_engram_hnet,
-  title  = {Platonic-Engram-HNet: On-Device LLM and Concept Engine for the Xteink X4 Pro (ESP32-S3) in 1.1 MB of RAM},
-  author = {Zhou, Robert},
-  year   = {2026},
-  url    = {https://robertzhou.dev/work/platonic-engram-hnet/}
-}
-```
+See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the dataflow and integer math, **[BENCHMARKS.md](BENCHMARKS.md)** for all 14 ablation arms and public benchmark tables, and **[LICENSE](LICENSE)** (MIT; dictionary glosses CC BY-SA 4.0 / CC BY 4.0; built for [CrossPoint Reader](https://github.com/CrossPoint-Reader) / [PapyriX](https://papyrix.com) / [FreeInk](https://github.com/FreeInk) on the Xteink X4 Pro).
