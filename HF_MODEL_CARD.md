@@ -13,6 +13,12 @@ tags:
 - cross-lingual
 - int8
 - sentence-similarity
+- xteink
+- x4-pro
+- papyrix
+- e-reader
+- e-ink
+- microcontroller-llm
 model-index:
 - name: Platonic-Engram-HNet-v2
   results:
@@ -70,17 +76,17 @@ model-index:
 
 # Platonic-Engram-HNet
 
-**Running Bilingual Word Sense, Spoiler-Free Character Memory, and Zero-Hallucination Generation in 1.1 MB of Microcontroller RAM — From Qwen3-32B H200 Distillation & 14 Controlled Ablations to Bit-Exact int8 C11/C++20 Firmware**
+**On-Device LLM & Concept Engine for the Xteink X4 Pro (ESP32-S3 E-Ink E-Reader) — Bilingual Word Sense, Spoiler-Free Character Memory, and Zero-Hallucination Generation in 1.1 MB of RAM (Qwen3-32B H200 Distillation to Bit-Exact int8 C11/C++20 Firmware)**
 
-[Project Page](https://robertzhou.dev/work/platonic-engram-hnet/) · [GitHub Repository](https://github.com/bobzhou-source/platonic-engram-hnet) · [Architecture](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/ARCHITECTURE.md) · [Benchmarks](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/BENCHMARKS.md)
+[Project Page (robertzhou.dev)](https://robertzhou.dev/work/platonic-engram-hnet/) · [GitHub Repository](https://github.com/bobzhou-source/platonic-engram-hnet) · [Architecture](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/ARCHITECTURE.md) · [Benchmarks](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/BENCHMARKS.md)
 
-I wanted three things from the cheap e-reader I read on (an ESP32-S3 microcontroller with 8 MB of PSRAM): tap an English or Chinese word and get the meaning it has in that sentence, ask "who is this character again?" on page 40 without spoiling page 300, and get short margin notes that never invent a name or stop mid-sentence.
+I wanted three things from the **Xteink X4 / X4 Pro** e-ink e-reader I read on (an **ESP32-S3** microcontroller with 8 MB of PSRAM running **PapyriX** firmware): tap an English or Chinese word and get the meaning it has in that sentence, ask "who is this character again?" on page 40 without spoiling page 300, and get short margin notes that never invent a name or stop mid-sentence.
 
-Shrinking a standard language model does not get you there. Below a megabyte it fails in three separate places:
+Shrinking a standard language model (LLM) does not get you there. Below a megabyte it fails in three separate places:
 
 - **The dictionary doesn't fit.** A 32,000-token vocabulary table at width 128 takes 4,096,000 bytes even at 8-bit precision, before a single layer runs. That alone is more RAM than the reader can spare next to its page buffers.
 - **Search spoils the book.** Ordinary retrieval looks through the whole book, so a question asked on page 40 can be answered from page 300.
-- **Tiny models can't finish a sentence.** My micro-model break off mid-sentence in 51.2% of its notes and invents a character name in 26.1%.
+- **Tiny models can't finish a sentence.** My micro-model breaks off mid-sentence in 51.2% of its notes and invents a character name in 26.1%.
 
 So I designed the models and the hardware memory layout together. The models were distilled from Qwen3-32B teachers on H200 GPUs and chosen through 14 controlled ablation arms; each one is placed where the device can afford it, in fast PSRAM or on the SD card the reader already uses to store books:
 
@@ -160,3 +166,14 @@ Code and weights are MIT, with two exceptions:
 
 - **Glosses inside `engram.bin`.** Adapted from CC-CEDICT (CC BY-SA 4.0, © CC-CEDICT contributors, MDBG) and Open English WordNet (CC BY 4.0, © the Open English WordNet team, derived from Princeton WordNet 3.1).
 - **`booksum-story-graph.idx`.** Derived from BookSum (Kryściński et al., 2021). Its event glosses are fragments of BookSum's chapter summaries, which come from study-guide sites (e.g. SparkNotes, GradeSaver, CliffsNotes, Shmoop). Check BookSum's terms before redistributing.
+
+## Citation
+
+```bibtex
+@software{zhou2026platonic_engram_hnet,
+  title  = {Platonic-Engram-HNet: On-Device LLM and Concept Engine for the Xteink X4 Pro (ESP32-S3) in 1.1 MB of RAM},
+  author = {Zhou, Robert},
+  year   = {2026},
+  url    = {https://robertzhou.dev/work/platonic-engram-hnet/}
+}
+```

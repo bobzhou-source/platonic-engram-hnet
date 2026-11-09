@@ -1,16 +1,16 @@
 # Platonic-Engram-HNet
 
-**Running Bilingual Word Sense, Spoiler-Free Character Memory, and Zero-Hallucination Generation in 1.1 MB of Microcontroller RAM — From Qwen3-32B H200 Distillation & 14 Controlled Ablations to Bit-Exact int8 C11/C++20 Firmware**
+**On-Device LLM & Concept Engine for the Xteink X4 Pro (ESP32-S3 E-Ink E-Reader) — Bilingual Word Sense, Spoiler-Free Character Memory, and Zero-Hallucination Generation in 1.1 MB of RAM (Qwen3-32B H200 Distillation to Bit-Exact int8 C11/C++20 Firmware)**
 
-[Project Page](https://robertzhou.dev/work/platonic-engram-hnet/) · [Hugging Face Weights](https://huggingface.co/bobzhou0/Platonic-Engram-HNet-v2) · [Architecture](ARCHITECTURE.md) · [Benchmarks](BENCHMARKS.md)
+[Project Page (robertzhou.dev)](https://robertzhou.dev/work/platonic-engram-hnet/) · [Hugging Face Weights](https://huggingface.co/bobzhou0/Platonic-Engram-HNet-v2) · [Architecture](ARCHITECTURE.md) · [Benchmarks](BENCHMARKS.md)
 
-I wanted three things from the cheap e-reader I read on (an ESP32-S3 microcontroller with 8 MB of PSRAM): tap an English or Chinese word and get the meaning it has in that sentence, ask "who is this character again?" on page 40 without spoiling page 300, and get short margin notes that never invent a name or stop mid-sentence.
+I wanted three things from the **Xteink X4 / X4 Pro** e-ink e-reader I read on (an **ESP32-S3** microcontroller with 8 MB of PSRAM running **PapyriX** firmware): tap an English or Chinese word and get the meaning it has in that sentence, ask "who is this character again?" on page 40 without spoiling page 300, and get short margin notes that never invent a name or stop mid-sentence.
 
-Shrinking a standard language model does not get you there. Below a megabyte it fails in three separate places:
+Shrinking a standard language model (LLM) does not get you there. Below a megabyte it fails in three separate places:
 
 - **The dictionary doesn't fit.** A 32,000-token vocabulary table at width 128 takes 4,096,000 bytes even at 8-bit precision, before a single layer runs. That alone is more RAM than the reader can spare next to its page buffers.
 - **Search spoils the book.** Ordinary retrieval looks through the whole book, so a question asked on page 40 can be answered from page 300.
-- **Tiny models can't finish a sentence.** My micro-model break off mid-sentence in 51.2% of its notes and invents a character name in 26.1%.
+- **Tiny models can't finish a sentence.** My micro-model breaks off mid-sentence in 51.2% of its notes and invents a character name in 26.1%.
 
 So I designed the models and the hardware memory layout together. The models were distilled from Qwen3-32B teachers on H200 GPUs and chosen through 14 controlled ablation arms; each one is placed where the device can afford it, in fast PSRAM or on the SD card the reader already uses to store books:
 
@@ -61,3 +61,14 @@ Training (`src/train.py`, `src/train_cspw.py`, `src/train_pe_writer.py`) and the
 ## License
 
 Code and weights: MIT (see [LICENSE](LICENSE)). Dictionary glosses come from CC-CEDICT (CC BY-SA 4.0) and Open English WordNet (CC BY 4.0); see the model card for attribution.
+
+## Citation
+
+```bibtex
+@software{zhou2026platonic_engram_hnet,
+  title  = {Platonic-Engram-HNet: On-Device LLM and Concept Engine for the Xteink X4 Pro (ESP32-S3) in 1.1 MB of RAM},
+  author = {Zhou, Robert},
+  year   = {2026},
+  url    = {https://robertzhou.dev/work/platonic-engram-hnet/}
+}
+```
