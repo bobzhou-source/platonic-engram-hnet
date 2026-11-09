@@ -10,7 +10,7 @@ Shrinking a standard language model does not get you there. Below a megabyte it 
 
 - **The dictionary doesn't fit.** A 32,000-token vocabulary table at width 128 takes 4,096,000 bytes even at 8-bit precision, before a single layer runs. That alone is more RAM than the reader can spare next to its page buffers.
 - **Search spoils the book.** Ordinary retrieval looks through the whole book, so a question asked on page 40 can be answered from page 300.
-- **Tiny models can't finish a sentence.** My own token-by-token micro-model broke off mid-sentence in 51.2% of its notes and invented a character name in 26.1%.
+- **Tiny models can't finish a sentence.** My micro-model break off mid-sentence in 51.2% of its notes and invents a character name in 26.1%.
 
 So I designed the models and the hardware memory layout together. The models were distilled from Qwen3-32B teachers on H200 GPUs and chosen through 14 controlled ablation arms; each one is placed where the device can afford it, in fast PSRAM or on the SD card the reader already uses to store books:
 
