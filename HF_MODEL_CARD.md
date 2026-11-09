@@ -80,7 +80,7 @@ Shrinking a standard language model does not get you there. Below a megabyte it 
 
 - **The dictionary doesn't fit.** A 32,000-token vocabulary table at width 128 takes 4,096,000 bytes even at 8-bit precision, before a single layer runs. That alone is more RAM than the reader can spare next to its page buffers.
 - **Search spoils the book.** Ordinary retrieval looks through the whole book, so a question asked on page 40 can be answered from page 300.
-- **Tiny models can't finish a sentence.** My own token-by-token micro-model broke off mid-sentence in 51.2% of its notes and invented a character name in 26.1%.
+- **Tiny models can't finish a sentence.** My micro-model break off mid-sentence in 51.2% of its notes and invents a character name in 26.1%.
 
 So I designed the models and the hardware memory layout together. The models were distilled from Qwen3-32B teachers on H200 GPUs and chosen through 14 controlled ablation arms; each one is placed where the device can afford it, in fast PSRAM or on the SD card the reader already uses to store books:
 
@@ -124,7 +124,7 @@ Inputs longer than 256 bytes should be split into sentence-packed windows of at 
 | **E-ink screen refresh controller** (`LiquidRefresh`, `339 B`) | **99.9%** refresh decision accuracy across 1,500 episodes (cuts full-screen flashes) | Fixed page-count rule |
 | **Python → C11 → C++20 firmware match** | **0 bit mismatches** across 38,580 benchmark lines & 1,067 firmware tests (`6.0 ms` median C query) | — |
 
-**Where a 95 KB model still loses (and why it is not a general-purpose server embedding model):** Because the byte router caps chunks at 12 UTF-8 bytes and fits in 95 KB of RAM, it splits 5+ character Chinese compounds, loses to 200 MB+ server models (and often to keyword search) on whole-sentence matching, and trails a static slot template on reference similarity. The `model-index` metadata scores above come from the project's own re-run of the MTEB/C-MTEB protocols (`verified: false`). Every win, loss, and 14-arm ablation table is in [BENCHMARKS.md](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/BENCHMARKS.md), and the model internals are in [ARCHITECTURE.md](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/ARCHITECTURE.md).
+**Where this 95 KB model still loses (and why it is not a general-purpose server embedding model):** Because the byte router caps chunks at 12 UTF-8 bytes and fits in 95 KB of RAM, it splits 5+ character Chinese compounds, loses to 200 MB+ server models (and often to keyword search) on whole-sentence matching, and trails a static slot template on reference similarity. The `model-index` metadata scores above come from the project's own re-run of the MTEB/C-MTEB protocols (`verified: false`). Every win, loss, and 14-arm ablation table is in [BENCHMARKS.md](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/BENCHMARKS.md), and the model internals are in [ARCHITECTURE.md](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/ARCHITECTURE.md).
 ## Weights
 
 All files are in `weights/` and listed in `weights/SHA256SUMS`.
@@ -138,7 +138,7 @@ All files are in `weights/` and listed in `weights/SHA256SUMS`.
 | `writer-clauses.bin` | 1,048,608 | SD card | 4,096 lowercase clauses, 4–10 words, no proper nouns | `7b0e3612c81d81764096c57fc6f1046abdc2a72ce9786e039861121b72d81023` |
 | `booksum-story-graph.idx` | 1,441,280 | SD card | public BookSum character map: 439 characters, 5,517 events, 21 public-domain books | `cf308bcee87035c81dc00920a9224f83a7984167d6b5f81bbcb7c3bce209ef36` |
 
-**Not published.** The device also holds a character map (`story-graph.idx`, 4,295,680 B: 2,532 characters, 16,137 event glosses and 62 aliases) and a concept index (`inbox-concepts.idx`, 96,784 B: 504 records from 126 books), both built from the owner's personal library. Every reader builds their own.
+**Not published.** The device also holds a character map (`story-graph.idx`, 4,295,680 B: 2,532 characters, 16,137 event glosses and 62 aliases) and a concept index (`inbox-concepts.idx`, 96,784 B: 504 records from 126 books), both built from my personal library.
 
 **Public-gloss `engram.bin`.** The device build (sha256 `2e7f1ec8…0be1`) has 529 glosses derived from the private reading corpus, such as character and clan names. [`tools/build_public_engram.py`](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/tools/build_public_engram.py) rewrites only the 32-byte gloss column and keeps a gloss only when it is a verbatim public-dictionary entry: 4,903 from CC-CEDICT (matched by hash and first sense), 3,090 from Open English WordNet, and 4 hyphenated WordNet headwords. The other 529 are blanked. The header, hashes and int8 corrections are byte-identical (`header_hash_delta_columns_identical: true` in `weights/engram.public-gloss.report.json`), and the encoder never reads glosses, so its output matches the device build bit for bit.
 
