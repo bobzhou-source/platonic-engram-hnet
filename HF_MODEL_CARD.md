@@ -115,14 +115,14 @@ Inputs longer than 256 bytes should be split into sentence-packed windows of at 
 
 ## Results
 
-Every number comes from public benchmarks run on the exact 8-bit model that ships on the device. "Matched-RAM BPE" is a conventional subword model given the same memory budget. Losses are listed next to wins; full tables are in [BENCHMARKS.md](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/BENCHMARKS.md).
+Every number comes from public benchmarks, run on the exact 8-bit model that ships on the device unless a row says otherwise. "Matched-RAM BPE" is a conventional subword model given the same memory budget. Losses are listed next to wins; full tables are in [BENCHMARKS.md](https://github.com/bobzhou-source/platonic-engram-hnet/blob/main/BENCHMARKS.md).
 
 | What is measured | Platonic-Engram-HNet | Matched-RAM BPE | Reference |
 |---|---:|---:|---|
 | Chinese word segmentation, SIGHAN05-PKU (word F1) | **0.394** | 0.322 | LFM2-350M tokenizer 0.488 · jieba 0.818 |
 | Chinese word segmentation, MSR / UD-GSDSimp (word F1) | **0.402 / 0.431** | 0.307 / 0.371 | jieba 0.813 / 0.799 |
-| English text prediction, WikiText-2 (bits/byte; byte router without SD table) | **3.4636** | 3.4925 | — |
-| Chinese text prediction, PKU (bits/byte; byte router without SD table) | **3.8351** | 4.0200 | — |
+| English text prediction, WikiText-2 (bits/byte; byte router without SD table, FP32) | **3.4636** | 3.4925 | — |
+| Chinese text prediction, PKU (bits/byte; byte router without SD table, FP32) | **3.8351** | 4.0200 | — |
 | Same two, **deployed** model with SD table (bits/byte) | 3.5789 / 4.0487 | **3.4925 / 4.0200** | the deployed model loses here |
 | English word-in-context sense, MCL-WiC (accuracy) | **0.577** | 0.523 | MiniLM-L12 (235 MB) 0.693 |
 | 12 public word-sense, similarity and paraphrase tasks | 5 wins · 6 ties · 1 loss | | |
