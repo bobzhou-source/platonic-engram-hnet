@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>Platonic-Engram-HNet v2 on-device pipeline</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+    <style>
+      .box{fill:#ffffff;stroke:#333;stroke-width:1.4;rx:6}
+      .psram{fill:#e8f1fb;stroke:#2f6db5}
+      .sd{fill:#fdf1e3;stroke:#c27a1a}
+      .sram{fill:#eef7ec;stroke:#3c8a3c}
+      .lbl{font-weight:bold}
+      .small{font-size:11px;fill:#444}
+      .edge{stroke:#333;stroke-width:1.4;fill:none;marker-end:url(#arrow)}
+      .dash{stroke:#c27a1a;stroke-width:1.4;fill:none;stroke-dasharray:5 4;marker-end:url(#arrow)}
+    </style>
+  </defs>
+
+  <text x="20" y="30" font-size="18" class="lbl">Platonic-Engram-HNet v2 — ESP32-S3 (240 MHz dual-core, 8 MB PSRAM) + SD card</text>
+  <rect x="640" y="44" width="14" height="14" class="box psram"/><text x="660" y="56" class="small">PSRAM-resident int8 weights</text>
+  <rect x="820" y="44" width="14" height="14" class="box sd"/><text x="840" y="56" class="small">SD card, read per lookup</text>
+  <rect x="640" y="64" width="14" height="14" class="box sram"/><text x="660" y="76" class="small">internal state / activations</text>
+
+  <!-- Encoder column -->
+  <rect x="20" y="100" width="190" height="52" class="box sram"/>
+  <text x="34" y="122" class="lbl">UTF-8 bytes (≤ 256)</text>
+  <text x="34" y="140" class="small">no tokenizer, no vocabulary</text>
+
+  <rect x="20" y="182" width="190" height="62" class="box psram"/>
+  <text x="34" y="204" class="lbl">byte_embed 256×64</text>
+  <text x="34" y="222" class="small">2 × LFM2 double-gated</text>
+  <text x="34" y="236" class="small">ShortConv (k=3) blocks</text>
+
+  <rect x="20" y="274" width="190" height="62" class="box psram"/>
+  <text x="34" y="296" class="lbl">H-Net cosine router</text>
+  <text x="34" y="314" class="small">causal, q·k dim 32, cut iff cos ≤ 0</text>
+  <text x="34" y="328" class="small">12-byte span cap, UTF-8 safe</text>
+
+  <rect x="20" y="366" width="190" height="52" class="box psram"/>
+  <text x="34" y="388" class="lbl">chunk mean → proj 128</text>
+  <text x="34" y="406" class="small">≈ 4.6 bytes per chunk</text>
+
+  <rect x="20" y="448" width="190" height="62" class="box psram"/>
+  <text x="34" y="470" class="lbl">Ouro core × 2</text>
+  <text x="34" y="488" class="small">shared-weight gated ShortConv</text>
+  <text x="34" y="502" class="small">+ out_proj, int8 residual</text>
+
+  <rect x="20" y="540" width="190" height="62" class="box sram"/>
+  <text x="34" y="562" class="lbl">concept vector</text>
+  <text x="34" y="580" class="small">sum → isqrt L2 → int8 ×128</text>
+  <text x="34" y="594" class="small">platonic-hnet.bin 95,008 B</text>
+
+  <path d="M115,152 V180" class="edge"/>
+  <path d="M115,244 V272" class="edge"/>
+  <path d="M115,336 V364" class="edge"/>
+  <path d="M115,418 V446" class="edge"/>
+  <path d="M115,510 V538" class="edge"/>
+
+  <!-- Engram -->
+  <rect x="260" y="350" width="210" height="96" class="box sd"/>
+  <text x="274" y="372" class="lbl">Engram (engram.bin)</text>
+  <text x="274" y="390" class="small">65,536 slots × 64 B = 4,194,816 B</text>
+  <text x="274" y="404" class="small">slot = FNV-1a64(span) mod 65,536</text>
+  <text x="274" y="418" class="small">{span_hash, i8 delta[24], gloss[32]}</text>
+  <text x="274" y="432" class="small">+ bigram-span probe; O(1) per chunk</text>
+  <path d="M260,398 H214" class="dash"/>
+  <text x="218" y="390" class="small" fill="#c27a1a">delta</text>
+
+  <!-- CS-PW -->
+  <rect x="520" y="110" width="220" height="150" class="box psram"/>
+  <text x="534" y="132" class="lbl">CS-PW v2 (cspw.bin)</text>
+  <text x="534" y="150" class="small">393,728 B int8</text>
+  <text x="534" y="168" class="small">ShortConv + Chunk-GQA d=192</text>
+  <text x="534" y="182" class="small">4 query heads / 2 KV heads</text>
+  <text x="534" y="200" class="small">4 Chrono-CfC slots,</text>
+  <text x="534" y="214" class="small">decay f = 2^(−Δpage / τ)</text>
+  <text x="534" y="232" class="small">256 frames · 512 phrases</text>
+  <text x="534" y="246" class="small">typed pointer decoder</text>
+
+  <rect x="780" y="110" width="200" height="96" class="box sd"/>
+  <text x="794" y="132" class="lbl">story graph (SGRF)</text>
+  <text x="794" y="150" class="small">entity / event / alias records</text>
+  <text x="794" y="164" class="small">sorted by cutoff; lookup gated</text>
+  <text x="794" y="178" class="small">by reading position + alias reveal</text>
+  <text x="794" y="196" class="small">→ spoiler leakage 0.000</text>
+  <path d="M780,160 H744" class="dash"/>
+
+  <!-- PE-Writer -->
+  <rect x="520" y="300" width="220" height="140" class="box psram"/>
+  <text x="534" y="322" class="lbl">Frame-Locked PE-Writer v2</text>
+  <text x="534" y="340" class="small">pe-writer.bin 641,726 B int8</text>
+  <text x="534" y="358" class="small">3-step Ouro planner → bucket</text>
+  <text x="534" y="372" class="small">decoder locked to 40 ids:</text>
+  <text x="534" y="386" class="small">EOS, 6 slots, 32 connectors</text>
+  <text x="534" y="404" class="small">frame: SUBJECT, ROLE: CLAUSE_0</text>
+  <text x="534" y="418" class="small">connector ECHO, CLAUSE_1.</text>
+
+  <rect x="780" y="300" width="200" height="96" class="box sd"/>
+  <text x="794" y="322" class="lbl">WCLS clause bank</text>
+  <text x="794" y="340" class="small">writer-clauses.bin 1,048,608 B</text>
+  <text x="794" y="354" class="small">64 buckets × 64 clauses</text>
+  <text x="794" y="368" class="small">lowercase, 4–10 words, ≤ 64 B</text>
+  <text x="794" y="382" class="small">no proper nouns</text>
+  <path d="M780,348 H744" class="dash"/>
+
+  <path d="M210,571 C380,571 400,190 516,190" class="edge"/>
+  <path d="M210,571 C400,571 420,370 516,370" class="edge"/>
+  <text x="300" y="520" class="small">scene / page concept vectors</text>
+
+  <!-- LiquidRefresh -->
+  <rect x="520" y="480" width="460" height="130" class="box sram"/>
+  <text x="534" y="502" class="lbl">LiquidRefresh CfC v2 (display policy, independent of the text path)</text>
+  <text x="534" y="522" class="small">8 inputs (changed share, fast turn, image area, dither, overlap, inverted, edge, mid-gray)</text>
+  <text x="534" y="538" class="small">→ 16 closed-form continuous-time units → 3 readouts</text>
+  <text x="534" y="554" class="small">h_t = e^(−f(x)Δt) ⊙ h_(t−1) + (1 − e^(−f(x)Δt)) ⊙ tanh(W_g x + b_g)</text>
+  <text x="534" y="574" class="small">y0 refresh gate (image sticking) · y1 contrast gain · y2 error-diffusion bleed</text>
+  <text x="534" y="594" class="small">339 int8 parameters · Q7 inputs, Q8 state · learns the gate on device (e-prop)</text>
+</svg>

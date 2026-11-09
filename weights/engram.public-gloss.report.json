@@ -1,0 +1,15 @@
+{
+ "source": "engram.bin (device build)",
+ "source_sha256": "2e7f1ec8e707be06478b4e9b944e02dec2b4743579534c938c2f89f9ea9e0be1",
+ "output": "engram.bin",
+ "bytes": 4194816,
+ "sha256": "8d6cac53f8f3038559ab71fa6e6aadc879eb9ef89cf66385cf225430615b228c",
+ "header_hash_delta_columns_identical": true,
+ "glosses_kept": {
+  "cedict": 4903,
+  "oewn_lemma": 3090,
+  "oewn_hyphen": 4
+ },
+ "glosses_kept_total": 7997,
+ "glosses_blanked": 529
+}

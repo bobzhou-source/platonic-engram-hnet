@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.venv/
+venv/
+
+# training data, checkpoints and exports (not published)
+data/
+runs/
+export/
+*.pt
+*.npz
+
+# benchmark caches and generated results
+benchmarks/cache/
+benchmarks/data/
+benchmarks/results/
+
+# parity gate reports
+parity_report.json
+pe_writer_parity_report.json

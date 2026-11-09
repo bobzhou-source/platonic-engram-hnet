@@ -1,0 +1,51 @@
+MIT License
+
+Copyright (c) 2026 Robert Zhou
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+--------------------------------------------------------------------------------
+Third-party material
+--------------------------------------------------------------------------------
+
+The MIT license above covers the code and the int8 model weights. The
+following parts carry their own terms:
+
+* Gloss column of weights/engram.bin
+  Chinese glosses are adapted from CC-CEDICT, (c) CC-CEDICT contributors / MDBG,
+  licensed under Creative Commons Attribution-ShareAlike 4.0 International
+  (CC BY-SA 4.0), https://creativecommons.org/licenses/by-sa/4.0/ .
+  English glosses are adapted from Open English WordNet, (c) the Open English
+  WordNet team (derived from Princeton WordNet 3.1), licensed under Creative
+  Commons Attribution 4.0 International (CC BY 4.0),
+  https://creativecommons.org/licenses/by/4.0/ .
+  The gloss column is a derivative of these dictionaries and is distributed
+  under CC BY-SA 4.0.
+
+* weights/booksum-story-graph.idx
+  Entities and event glosses are derived from BookSum (Kryscinski et al.,
+  2021; kmfoda/booksum), whose chapter summaries come from study-guide sites.
+  Check BookSum's terms before redistributing this file.
+
+* firmware/host_stubs/ and the firmware integration of firmware/ConceptEngine.*
+  come from a fork of the CrossPoint Reader firmware:
+  Copyright (c) 2025 CrossPoint Reader organization, MIT License.
+
+* firmware/FrameChangeMetrics.h
+  Copyright (c) 2026 FreeInk, MIT License.
