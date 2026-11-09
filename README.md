@@ -1,5 +1,7 @@
 # Platonic-Engram-HNet v2
 
+Author: **Robert Zhou** ([robertzhou.dev](https://robertzhou.dev/work/platonic-engram-hnet/) · [GitHub](https://github.com/bobzhou-source/platonic-engram-hnet) · [ORCID 0009-0009-2155-7215](https://orcid.org/0009-0009-2155-7215))
+
 **Disaggregating Compute and Memory Below 1 Megabyte: Tokenizer-Free Byte Routing, O(1) Flash Engrams, and Continuous-Time State in Pure `int8` C++ (From Qwen3-32B H200 Distillation & 4-Arm Ablations to Bit-Exact ESP32-S3 Firmware)**
 
 Standard language models spend megabytes of RAM on a static vocabulary table, leak spoilers when used for book retrieval, and hallucinate when shrunk below 100M parameters. I split the problem along the memory hierarchy instead of shrinking a transformer. **Compute** is a 95 KB looped byte-router in PSRAM. **Lexical memory** is a 4.2 MB $O(1)$ Engram hash table on the SD card, read one 64-byte slot per word. **Episodic state** is 4 continuous-time Chrono-CfC entity slots behind hard causal page-offset spoiler gates. **Syntax** is 4,096 frame-locked clauses on SD. With that split, an ESP32-S3 e-reader runs bilingual word sense, spoiler-proof character recaps and margin notes with no invented names, in 1,130,462 bytes (< 1.2 MB) of PSRAM weights.

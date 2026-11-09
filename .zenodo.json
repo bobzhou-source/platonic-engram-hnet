@@ -1,0 +1,38 @@
+{
+  "title": "Platonic-Engram-HNet v2: Disaggregating Compute and Memory Below 1 MB — Tokenizer-Free int8 Byte Routing, O(1) Flash Engrams, Causal Chrono-CfC and Frame-Locked Decoding in Bit-Exact C/C++20 ESP32-S3 Firmware",
+  "upload_type": "software",
+  "version": "2.0.0",
+  "license": "MIT",
+  "creators": [
+    {
+      "name": "Zhou, Robert",
+      "affiliation": "Colby College",
+      "orcid": "0009-0009-2155-7215"
+    }
+  ],
+  "description": "<p>A sub-1 MB on-device language stack for an ESP32-S3 e-reader that splits the problem along the memory hierarchy instead of shrinking a transformer: a 95 KB looped int8 byte router in PSRAM (no tokenizer), a 4.2 MB O(1) Engram hash table on SD read one 64-byte slot per word, four continuous-time Chrono-CfC entity slots behind causal spoiler gates, and a frame-locked concept decoder over a 4,096-clause bank. PyTorch QAT, NumPy, C11 and the C++20 firmware kernel agree bit for bit.</p><p>Project page: <a href=\"https://robertzhou.dev/work/platonic-engram-hnet/\">https://robertzhou.dev/work/platonic-engram-hnet/</a></p>",
+  "keywords": [
+    "embedded-ai",
+    "esp32-s3",
+    "int8",
+    "quantization",
+    "byte-level-lm",
+    "engram",
+    "e-ink",
+    "c-plus-plus",
+    "edge-ml",
+    "tokenizer-free"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/bobzhou-source/platonic-engram-hnet",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://robertzhou.dev/work/platonic-engram-hnet/",
+      "relation": "isDocumentedBy",
+      "scheme": "url"
+    }
+  ]
+}
